@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/messaging")
@@ -20,9 +21,14 @@ public class MessagingController {
      * Créer une nouvelle conversation entre deux utilisateurs.
      */
     @PostMapping("/conversations")
-    public ResponseEntity<Conversation> createConversation(
-            @RequestParam Long personOneId,
-            @RequestParam Long personTwoId) {
+    public ResponseEntity<Conversation> createConversation(@RequestBody Map<String, Long> body) {
+        Long personOneId = body.get("personOneId");
+        Long personTwoId = body.get("personTwoId");
+
+        if (personOneId == null || personTwoId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
         Conversation conversation = messagingService.createConversation(personOneId, personTwoId);
         return ResponseEntity.ok(conversation);
     }
@@ -40,10 +46,15 @@ public class MessagingController {
      * Envoyer un message dans une conversation.
      */
     @PostMapping("/messages")
-    public ResponseEntity<Message> sendMessage(
-            @RequestParam Long conversationId,
-            @RequestParam Long senderId,
-            @RequestParam String content) {
+    public ResponseEntity<Message> sendMessage(@RequestBody Map<String, Object> body) {
+        Long conversationId = ((Number) body.get("conversationId")).longValue();
+        Long senderId = ((Number) body.get("senderId")).longValue();
+        String content = (String) body.get("content");
+
+        if (conversationId == null || senderId == null || content == null || content.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
         Message message = messagingService.sendMessage(conversationId, senderId, content);
         return ResponseEntity.ok(message);
     }
@@ -63,8 +74,18 @@ public class MessagingController {
     @PatchMapping("/messages/{messageId}/status")
     public ResponseEntity<Message> updateMessageStatus(
             @PathVariable Long messageId,
-            @RequestParam Message.MessageStatus newStatus) {
-        Message updatedMessage = messagingService.updateMessageStatus(messageId, newStatus);
-        return ResponseEntity.ok(updatedMessage);
+            @RequestBody Map<String, String> body) {
+        String newStatusString = body.get("newStatus");
+        if (newStatusString == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            Message.MessageStatus newStatus = Message.MessageStatus.valueOf(newStatusString.toUpperCase());
+            Message updatedMessage = messagingService.updateMessageStatus(messageId, newStatus);
+            return ResponseEntity.ok(updatedMessage);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }
